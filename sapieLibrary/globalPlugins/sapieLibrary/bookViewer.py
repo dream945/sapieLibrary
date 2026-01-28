@@ -60,7 +60,82 @@ def _open_in_external_editor(text_content, book_title, is_braille=False):
 	subprocess.Popen([editor_path, file_path], shell=True)
 
 
-def open_in_braille_editor(file_path):
+class VolumeSelectionDialog(wx.Dialog):
+	"""Dialog to select which volume(s) to open"""
+
+	def __init__(self, parent, volume_list):
+		"""
+		Initialize the volume selection dialog
+
+		Args:
+			parent: Parent window
+			volume_list: List of tuples (display_name, file_path)
+		"""
+		super(VolumeSelectionDialog, self).__init__(
+			parent,
+			title=_("巻の選択"),
+			style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+		)
+		self.volume_list = volume_list
+		self.selected_files = []
+
+		sizer = wx.BoxSizer(wx.VERTICAL)
+
+		# Message
+		msg = wx.StaticText(self, label=_("開く巻を選択してください（複数選択可）:"))
+		sizer.Add(msg, flag=wx.ALL, border=10)
+
+		# List box with multiple selection
+		self.listBox = wx.ListBox(
+			self,
+			choices=[v[0] for v in volume_list],
+			style=wx.LB_EXTENDED | wx.LB_HSCROLL
+		)
+		self.listBox.SetMinSize((400, 200))
+		sizer.Add(self.listBox, proportion=1, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=10)
+
+		# Buttons
+		btnSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+		self.allBtn = wx.Button(self, label=_("すべて選択(&A)"))
+		self.allBtn.Bind(wx.EVT_BUTTON, self.onSelectAll)
+		btnSizer.Add(self.allBtn, flag=wx.ALL, border=5)
+
+		self.openBtn = wx.Button(self, wx.ID_OK, label=_("開く(&O)"))
+		self.openBtn.Bind(wx.EVT_BUTTON, self.onOpen)
+		btnSizer.Add(self.openBtn, flag=wx.ALL, border=5)
+
+		self.cancelBtn = wx.Button(self, wx.ID_CANCEL, label=_("キャンセル(&C)"))
+		btnSizer.Add(self.cancelBtn, flag=wx.ALL, border=5)
+
+		sizer.Add(btnSizer, flag=wx.ALIGN_CENTER | wx.ALL, border=10)
+
+		self.SetSizer(sizer)
+		sizer.Fit(self)
+		self.CenterOnParent()
+
+		# Select first item by default
+		if self.listBox.GetCount() > 0:
+			self.listBox.SetSelection(0)
+		self.listBox.SetFocus()
+
+	def onSelectAll(self, evt):
+		"""Select all items"""
+		for i in range(self.listBox.GetCount()):
+			self.listBox.SetSelection(i)
+
+	def onOpen(self, evt):
+		"""Get selected files and close"""
+		selections = self.listBox.GetSelections()
+		self.selected_files = [self.volume_list[i][1] for i in selections]
+		self.EndModal(wx.ID_OK)
+
+	def GetSelectedFiles(self):
+		"""Return list of selected file paths"""
+		return self.selected_files
+
+
+def open_in_braille_editor(file_path, parent=None):
 	"""Extract BES file from ZIP and open in external editor"""
 	try:
 		# Get external editor path from config
@@ -73,7 +148,7 @@ def open_in_braille_editor(file_path):
 
 		# Extract BES file from ZIP
 		temp_dir = tempfile.gettempdir()
-		extracted_files = []
+		extracted_files = []  # List of tuples (display_name, file_path)
 
 		with zipfile.ZipFile(file_path, mode='r', compression=zipfile.ZIP_STORED, allowZip64=True) as zf:
 			for info in zf.infolist():
@@ -93,18 +168,29 @@ def open_in_braille_editor(file_path):
 					with open(bes_path, 'wb') as f:
 						f.write(bes_content)
 
-					extracted_files.append(bes_path)
+					# Use original name for display
+					extracted_files.append((name, bes_path))
 
 		if not extracted_files:
 			ui.message(_("BESファイルが見つかりませんでした"))
 			return False
 
-		# Open all BES files in external editor
-		for bes_file in extracted_files:
-			subprocess.Popen([editor_path, bes_file], shell=True)
+		# Sort by name
+		extracted_files.sort(key=lambda x: x[0])
 
-		if len(extracted_files) > 1:
-			ui.message(_("{}個のBESファイルを開きました。").format(len(extracted_files)))
+		if len(extracted_files) == 1:
+			# Only one file, open directly
+			subprocess.Popen([editor_path, extracted_files[0][1]], shell=True)
+		else:
+			# Multiple files, show selection dialog
+			dlg = VolumeSelectionDialog(parent, extracted_files)
+			if dlg.ShowModal() == wx.ID_OK:
+				selected = dlg.GetSelectedFiles()
+				for bes_file in selected:
+					subprocess.Popen([editor_path, bes_file], shell=True)
+				if len(selected) > 1:
+					ui.message(_("{}個のファイルを開きました。").format(len(selected)))
+			dlg.Destroy()
 
 		return True
 

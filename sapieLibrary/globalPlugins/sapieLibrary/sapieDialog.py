@@ -2316,7 +2316,7 @@ class ViewOptionsDialog(wx.Dialog):
 
 			if displayFormat == "editor":
 				# Open raw BES file in braille editor
-				bookViewer.open_in_braille_editor(self.filePath)
+				bookViewer.open_in_braille_editor(self.filePath, parent=self.GetParent())
 			else:
 				# Convert and open in notepad
 				convert_to_kana = (displayFormat == "kana")
