@@ -118,11 +118,19 @@ class SapieDialog(wx.Dialog):
 		self.statusText = wx.StaticText(self, label=_("ログインしてください"))
 		self.mainSizer.Add(self.statusText, flag=wx.ALL, border=5)
 
-		# Close button (always visible)
-		closeButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
+		# Bottom buttons (always visible)
+		bottomButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+		# Open book button
+		self.openBookButton = wx.Button(self, label=_("図書を開く(&O)..."))
+		self.openBookButton.Bind(wx.EVT_BUTTON, self.onOpenBook)
+		bottomButtonSizer.Add(self.openBookButton, flag=wx.ALL, border=5)
+
+		# Close button
 		closeButton = wx.Button(self, wx.ID_CLOSE, _("閉じる(&C)"))
-		closeButtonSizer.Add(closeButton, flag=wx.ALL, border=5)
-		self.mainSizer.Add(closeButtonSizer, flag=wx.ALIGN_CENTER | wx.ALL, border=10)
+		bottomButtonSizer.Add(closeButton, flag=wx.ALL, border=5)
+
+		self.mainSizer.Add(bottomButtonSizer, flag=wx.ALIGN_CENTER | wx.ALL, border=10)
 
 		self.SetSizer(self.mainSizer)
 
@@ -2237,6 +2245,11 @@ class SapieDialog(wx.Dialog):
 				wx.OK | wx.ICON_ERROR
 			)
 
+	def onOpenBook(self, evt):
+		"""Handle open book button click"""
+		from . import bookViewer
+		bookViewer.browse_and_open_book(self)
+
 	def onClose(self, evt):
 		"""Handle dialog close"""
 		# Stop progress timer if running
@@ -2252,12 +2265,12 @@ class SapieDialog(wx.Dialog):
 
 
 class ViewOptionsDialog(wx.Dialog):
-	"""Dialog asking if user wants to view downloaded book"""
+	"""Dialog asking if user wants to view a book"""
 
-	def __init__(self, parent, filePath):
+	def __init__(self, parent, filePath, is_new_download=True):
 		super(ViewOptionsDialog, self).__init__(
 			parent,
-			title=_("ダウンロード完了"),
+			title=_("図書を開く"),
 			style=wx.DEFAULT_DIALOG_STYLE
 		)
 		self.filePath = filePath
@@ -2265,7 +2278,14 @@ class ViewOptionsDialog(wx.Dialog):
 		sizer = wx.BoxSizer(wx.VERTICAL)
 
 		# Message
-		msg = wx.StaticText(self, label=_("ダウンロードが完了しました。\nこの図書を閲覧しますか？"))
+		if is_new_download:
+			msg_text = _("ダウンロードが完了しました。\nこの図書を閲覧しますか？")
+		else:
+			# Show filename for existing books
+			import os
+			filename = os.path.basename(filePath)
+			msg_text = _("この図書を閲覧しますか？\n\n{}").format(filename)
+		msg = wx.StaticText(self, label=msg_text)
 		sizer.Add(msg, flag=wx.ALL, border=10)
 
 		# Buttons

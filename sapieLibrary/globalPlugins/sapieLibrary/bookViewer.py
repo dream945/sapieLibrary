@@ -99,11 +99,12 @@ def open_in_braille_editor(file_path):
 			ui.message(_("BESファイルが見つかりませんでした"))
 			return False
 
-		# Open first BES file in braille editor
-		subprocess.Popen([editor_path, extracted_files[0]], shell=True)
+		# Open all BES files in external editor
+		for bes_file in extracted_files:
+			subprocess.Popen([editor_path, bes_file], shell=True)
 
 		if len(extracted_files) > 1:
-			ui.message(_("{}個のBESファイルを抽出しました。最初のファイルを開きます。").format(len(extracted_files)))
+			ui.message(_("{}個のBESファイルを開きました。").format(len(extracted_files)))
 
 		return True
 
@@ -128,3 +129,40 @@ def open_book_async(file_path, viewer_method=None, convert_to_kana=None, callbac
 
 	thread = threading.Thread(target=_open, daemon=True)
 	thread.start()
+
+
+def browse_and_open_book(parent=None):
+	"""Show file dialog to browse and open an existing book"""
+	try:
+		# Get default directory from config
+		try:
+			default_dir = config.conf["sapieLibrary"].get("downloadPath", "")
+		except:
+			default_dir = ""
+
+		dlg = wx.FileDialog(
+			parent,
+			_("点字図書を開く"),
+			defaultDir=default_dir,
+			wildcard=_("点字図書 (*.zip;*.exe)|*.zip;*.exe|すべてのファイル (*.*)|*.*"),
+			style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
+		)
+
+		if dlg.ShowModal() == wx.ID_OK:
+			file_path = dlg.GetPath()
+			dlg.Destroy()
+
+			# Show view options dialog
+			from .sapieDialog import ViewOptionsDialog
+			view_dlg = ViewOptionsDialog(parent, file_path, is_new_download=False)
+			view_dlg.ShowModal()
+			view_dlg.Destroy()
+			return True
+		else:
+			dlg.Destroy()
+			return False
+
+	except Exception as e:
+		log.error(f"Error browsing for book: {e}", exc_info=True)
+		ui.message(_("ファイルを開けませんでした: {}").format(str(e)))
+		return False
