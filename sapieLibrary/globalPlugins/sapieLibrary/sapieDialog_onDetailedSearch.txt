@@ -1,0 +1,113 @@
+	def onDetailedSearch(self, evt):
+		"""Handle detailed search button click"""
+		if not self.client or not self.client.is_logged_in():
+			wx.MessageBox(
+				_("検索する前にログインしてください。"),
+				_("ログインが必要"),
+				wx.OK | wx.ICON_WARNING
+			)
+			return
+
+		# Collect all search parameters
+		search_params = {}
+
+		# Search terms
+		search_params["title"] = self.detailedTitleText.GetValue().strip()
+		search_params["title_method"] = str(self.detailedTitleMethodChoice.GetSelection() + 1)
+		search_params["author"] = self.detailedAuthorText.GetValue().strip()
+		search_params["author_method"] = str(self.detailedAuthorMethodChoice.GetSelection() + 1)
+		search_params["keyword"] = self.detailedKeywordText.GetValue().strip()
+		search_params["keyword_method"] = str(self.detailedKeywordMethodChoice.GetSelection() + 1)
+		search_params["exclude_abstract"] = "1" if self.detailedExcludeAbstractCheckbox.GetValue() else ""
+		search_params["publisher"] = self.detailedPublisherText.GetValue().strip()
+		search_params["ndc"] = self.detailedNDCText.GetValue().strip()
+		search_params["genre"] = self.detailedGenreText.GetValue().strip()
+		search_params["isbn"] = self.detailedISBNText.GetValue().strip()
+		search_params["braille_num"] = self.detailedBrailleNumText.GetValue().strip()
+		search_params["producer_id"] = self.detailedProducerIDText.GetValue().strip()
+		search_params["holder_id"] = self.detailedHolderIDText.GetValue().strip()
+
+		# Checkboxes
+		search_params["has_content"] = "1" if self.detailedHasContentCheckbox.GetValue() else ""
+		search_params["online_request"] = "1" if self.detailedOnlineRequestCheckbox.GetValue() else ""
+		search_params["include_ndl"] = "5" if self.detailedIncludeNDLCheckbox.GetValue() else ""
+
+		# Material type
+		matTypeIdx = self.detailedMaterialTypeChoice.GetSelection()
+		matTypeMap = ["", "1", "11", "12", "2", "21", "22", "23", "24", "3", "31", "32", "33", "42", "5", "9"]
+		search_params["material_type"] = matTypeMap[matTypeIdx] if matTypeIdx < len(matTypeMap) else ""
+		search_params["daisy_only"] = "1" if self.detailedDaisyOnlyCheckbox.GetValue() else ""
+
+		# Braille detail
+		braille_details = []
+		if self.detailedBrailleNoAbbrevCheckbox.GetValue():
+			braille_details.append("11")
+		if self.detailedBrailleAbbrevCheckbox.GetValue():
+			braille_details.append("12")
+		if self.detailedKanBrailleCheckbox.GetValue():
+			braille_details.append("13")
+		if self.detailedRokutenCheckbox.GetValue():
+			braille_details.append("14")
+		search_params["braille_detail"] = ",".join(braille_details)
+
+		# Catalog type
+		search_params["catalog_type"] = str(self.detailedCatalogTypeChoice.GetSelection() + 1)
+
+		# Category
+		catIdx = self.detailedCategoryChoice.GetSelection()
+		search_params["category"] = str(catIdx) if catIdx > 0 else ""
+
+		# Target
+		targetIdx = self.detailedTargetChoice.GetSelection()
+		search_params["target"] = str(targetIdx) if targetIdx > 0 else ""
+
+		# Loan format
+		loanIdx = self.detailedLoanFormatChoice.GetSelection()
+		loanMap = ["", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "12", "99"]
+		search_params["loan_format"] = loanMap[loanIdx] if loanIdx < len(loanMap) else ""
+
+		# Production status
+		prodIdx = self.detailedProductionStatusChoice.GetSelection()
+		search_params["production_status"] = str(prodIdx) if prodIdx > 0 else ""
+
+		# Graphic
+		graphIdx = self.detailedGraphicChoice.GetSelection()
+		search_params["graphic"] = str(graphIdx) if graphIdx > 0 else ""
+
+		# Audio compression
+		audioIdx = self.detailedAudioCompChoice.GetSelection()
+		search_params["audio_comp"] = str(audioIdx) if audioIdx > 0 else ""
+
+		# Date ranges
+		search_params["orig_pub_from"] = self.detailedOrigPubFromText.GetValue().strip()
+		search_params["orig_pub_to"] = self.detailedOrigPubToText.GetValue().strip()
+		search_params["braille_pub_from"] = self.detailedBraillePubFromText.GetValue().strip()
+		search_params["braille_pub_to"] = self.detailedBraillePubToText.GetValue().strip()
+		search_params["complete_from"] = self.detailedCompleteFromText.GetValue().strip()
+		search_params["complete_to"] = self.detailedCompleteToText.GetValue().strip()
+
+		# Display count
+		displayIdx = self.detailedDisplayCountChoice.GetSelection()
+		displayMap = ["50", "100", "200", "300"]
+		search_params["display_count"] = displayMap[displayIdx]
+
+		# Require at least one search term
+		has_search_term = any([
+			search_params["title"], search_params["author"], search_params["keyword"],
+			search_params["publisher"], search_params["ndc"], search_params["genre"],
+			search_params["isbn"], search_params["braille_num"], search_params["producer_id"],
+			search_params["holder_id"], search_params["orig_pub_from"], search_params["orig_pub_to"],
+			search_params["braille_pub_from"], search_params["braille_pub_to"],
+			search_params["complete_from"], search_params["complete_to"]
+		])
+
+		if not has_search_term:
+			wx.MessageBox(
+				_("少なくとも1つの検索条件を入力してください。"),
+				_("入力エラー"),
+				wx.OK | wx.ICON_WARNING
+			)
+			self.detailedTitleText.SetFocus()
+			return
+
+		self._performDetailedSearch(search_params)
