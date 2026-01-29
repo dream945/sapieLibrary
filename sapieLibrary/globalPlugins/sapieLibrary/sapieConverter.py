@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
-# Sapie Converter - BES file extraction and conversion
+# Sapie Converter - Braille file extraction and conversion
 
 import os
 import zipfile
 import logging
 
 log = logging.getLogger(__name__)
+
+# Supported braille file extensions
+BRAILLE_EXTENSIONS = ('.BES', '.BET', '.BMT', '.BSE', '.NAB', '.BRL')
 
 
 def convert_bes_to_unicode(content):
@@ -46,7 +49,7 @@ def convert_bes_to_unicode(content):
 	return result
 
 
-def list_bes_files(file_path):
+def list_braille_files(file_path):
 	"""List BES files in a ZIP/EXE archive
 
 	Returns:
@@ -63,7 +66,7 @@ def list_bes_files(file_path):
 
 				name, ext = os.path.splitext(filename)
 
-				if ext.upper() == '.BES':
+				if ext.upper() in BRAILLE_EXTENSIONS:
 					bes_files.append((name, info.filename))
 
 		# Sort by name
@@ -143,7 +146,7 @@ def extract_and_convert_bes(file_path, convert_to_kana=True):
 
 				name, ext = os.path.splitext(filename)
 
-				if ext.upper() == '.BES':
+				if ext.upper() in BRAILLE_EXTENSIONS:
 					with zf.open(info.filename) as f:
 						content = f.read()
 						braille_text = convert_bes_to_unicode(content)

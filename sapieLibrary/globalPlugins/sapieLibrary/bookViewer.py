@@ -19,6 +19,9 @@ except:
 
 log = logging.getLogger(__name__)
 
+# Supported braille file extensions
+BRAILLE_EXTENSIONS = ('.BES', '.BET', '.BMT', '.BSE', '.NAB', '.BRL')
+
 
 def open_book(file_path, viewer_method=None, convert_to_kana=None, parent=None):
 	"""Open a downloaded book for viewing"""
@@ -28,19 +31,19 @@ def open_book(file_path, viewer_method=None, convert_to_kana=None, parent=None):
 
 		from . import sapieConverter
 
-		# List BES files
-		bes_files = sapieConverter.list_bes_files(file_path)
+		# List braille files
+		braille_files = sapieConverter.list_braille_files(file_path)
 
-		if not bes_files:
-			ui.message(_("BESファイルが見つかりませんでした"))
+		if not braille_files:
+			ui.message(_("点字ファイルが見つかりませんでした"))
 			return False
 
-		if len(bes_files) == 1:
+		if len(braille_files) == 1:
 			# Only one file, convert directly
 			text_content, book_title = sapieConverter.extract_and_convert_bes(file_path, convert_to_kana)
 		else:
 			# Multiple files, show selection dialog
-			dlg = VolumeSelectionDialog(parent, bes_files)
+			dlg = VolumeSelectionDialog(parent, braille_files)
 			if dlg.ShowModal() == wx.ID_OK:
 				selected = dlg.GetSelectedFiles()
 				if not selected:
@@ -161,7 +164,7 @@ class VolumeSelectionDialog(wx.Dialog):
 
 
 def open_in_braille_editor(file_path, parent=None):
-	"""Extract BES file from ZIP and open in external editor"""
+	"""Extract braille file from ZIP and open in external editor"""
 	try:
 		# Get external editor path from config
 		try:
@@ -171,7 +174,7 @@ def open_in_braille_editor(file_path, parent=None):
 		except:
 			editor_path = "notepad.exe"
 
-		# Extract BES file from ZIP
+		# Extract braille files from ZIP
 		temp_dir = tempfile.gettempdir()
 		extracted_files = []  # List of tuples (display_name, file_path)
 
@@ -184,20 +187,21 @@ def open_in_braille_editor(file_path, parent=None):
 
 				name, ext = os.path.splitext(filename)
 
-				if ext.upper() == '.BES':
-					# Extract BES file to temp directory
-					bes_content = zf.read(info.filename)
+				if ext.upper() in BRAILLE_EXTENSIONS:
+					# Extract braille file to temp directory
+					braille_content = zf.read(info.filename)
 					safe_name = "".join(c if c.isalnum() or c in " -_" else "_" for c in name)[:50]
-					bes_path = os.path.join(temp_dir, f"{safe_name}.bes")
+					# Preserve original extension
+					braille_path = os.path.join(temp_dir, f"{safe_name}{ext.lower()}")
 
-					with open(bes_path, 'wb') as f:
-						f.write(bes_content)
+					with open(braille_path, 'wb') as f:
+						f.write(braille_content)
 
 					# Use original name for display
-					extracted_files.append((name, bes_path))
+					extracted_files.append((name, braille_path))
 
 		if not extracted_files:
-			ui.message(_("BESファイルが見つかりませんでした"))
+			ui.message(_("点字ファイルが見つかりませんでした"))
 			return False
 
 		# Sort by name
