@@ -20,14 +20,39 @@ except:
 log = logging.getLogger(__name__)
 
 
-def open_book(file_path, viewer_method=None, convert_to_kana=None):
+def open_book(file_path, viewer_method=None, convert_to_kana=None, parent=None):
 	"""Open a downloaded book for viewing"""
 	try:
 		if convert_to_kana is None:
 			convert_to_kana = True
 
 		from . import sapieConverter
-		text_content, book_title = sapieConverter.extract_and_convert_bes(file_path, convert_to_kana)
+
+		# List BES files
+		bes_files = sapieConverter.list_bes_files(file_path)
+
+		if not bes_files:
+			ui.message(_("BESファイルが見つかりませんでした"))
+			return False
+
+		if len(bes_files) == 1:
+			# Only one file, convert directly
+			text_content, book_title = sapieConverter.extract_and_convert_bes(file_path, convert_to_kana)
+		else:
+			# Multiple files, show selection dialog
+			dlg = VolumeSelectionDialog(parent, bes_files)
+			if dlg.ShowModal() == wx.ID_OK:
+				selected = dlg.GetSelectedFiles()
+				if not selected:
+					dlg.Destroy()
+					return False
+				text_content, book_title = sapieConverter.extract_and_convert_selected_bes(
+					file_path, selected, convert_to_kana
+				)
+			else:
+				dlg.Destroy()
+				return False
+			dlg.Destroy()
 
 		if not text_content:
 			ui.message(_("読み取れるコンテンツがありません"))

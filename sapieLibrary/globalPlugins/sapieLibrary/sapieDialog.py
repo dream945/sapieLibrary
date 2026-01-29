@@ -2308,6 +2308,9 @@ class ViewOptionsDialog(wx.Dialog):
 
 	def onYes(self, evt):
 		"""Open the book using display format from settings"""
+		# Get parent before closing
+		parent = self.GetParent()
+		filePath = self.filePath
 		self.Close()
 		try:
 			from . import bookViewer
@@ -2316,11 +2319,11 @@ class ViewOptionsDialog(wx.Dialog):
 
 			if displayFormat == "editor":
 				# Open raw BES file in braille editor
-				bookViewer.open_in_braille_editor(self.filePath, parent=self.GetParent())
+				bookViewer.open_in_braille_editor(filePath, parent=parent)
 			else:
 				# Convert and open in notepad
 				convert_to_kana = (displayFormat == "kana")
-				bookViewer.open_book(self.filePath, convert_to_kana=convert_to_kana)
+				bookViewer.open_book(filePath, convert_to_kana=convert_to_kana, parent=parent)
 		except Exception as e:
 			ui.message(_("図書を開けませんでした"))
 

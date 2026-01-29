@@ -46,6 +46,88 @@ def convert_bes_to_unicode(content):
 	return result
 
 
+def list_bes_files(file_path):
+	"""List BES files in a ZIP/EXE archive
+
+	Returns:
+		List of tuples (display_name, internal_filename)
+	"""
+	bes_files = []
+	try:
+		with zipfile.ZipFile(file_path, mode='r', compression=zipfile.ZIP_STORED, allowZip64=True) as zf:
+			for info in zf.infolist():
+				try:
+					filename = info.filename.encode('cp437').decode('cp932')
+				except:
+					filename = info.filename
+
+				name, ext = os.path.splitext(filename)
+
+				if ext.upper() == '.BES':
+					bes_files.append((name, info.filename))
+
+		# Sort by name
+		bes_files.sort(key=lambda x: x[0])
+		return bes_files
+
+	except Exception as e:
+		log.error(f"Error listing BES files: {e}")
+		return []
+
+
+def extract_and_convert_selected_bes(file_path, selected_files, convert_to_kana=True):
+	"""Extract and convert specific BES files from ZIP/EXE
+
+	Args:
+		file_path: Path to the ZIP/EXE file
+		selected_files: List of internal filenames to extract
+		convert_to_kana: Whether to convert to kana
+
+	Returns:
+		Tuple of (text_content, book_title)
+	"""
+	result = ""
+	book_title = os.path.splitext(os.path.basename(file_path))[0]
+
+	try:
+		with zipfile.ZipFile(file_path, mode='r', compression=zipfile.ZIP_STORED, allowZip64=True) as zf:
+			for internal_name in selected_files:
+				try:
+					with zf.open(internal_name) as f:
+						content = f.read()
+						braille_text = convert_bes_to_unicode(content)
+						result += braille_text
+				except Exception as e:
+					log.error(f"Error reading {internal_name}: {e}")
+
+				# Get display name for title
+				try:
+					filename = internal_name.encode('cp437').decode('cp932')
+				except:
+					filename = internal_name
+				name, ext = os.path.splitext(filename)
+				if not book_title or book_title == os.path.splitext(os.path.basename(file_path))[0]:
+					book_title = name
+
+		if convert_to_kana and result:
+			try:
+				from .TenjiTexter import DocumentsViewer
+				dv = DocumentsViewer()
+				dv.buff = result
+				result = dv.katakana_conv()
+				result = dv.Cxx(result)
+				result = dv.Cxx2(result)
+				result = dv.Cxx3(result)
+			except Exception as e:
+				log.error(f"Kana conversion failed: {e}")
+
+		return result, book_title
+
+	except Exception as e:
+		log.error(f"Error extracting BES: {e}")
+		raise
+
+
 def extract_and_convert_bes(file_path, convert_to_kana=True):
 	"""Extract BES files from ZIP/EXE and convert to readable text"""
 	result = ""
