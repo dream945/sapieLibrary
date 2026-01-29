@@ -23,6 +23,43 @@ log = logging.getLogger(__name__)
 BRAILLE_EXTENSIONS = ('.BES', '.BET', '.BMT', '.BSE', '.NAB', '.BRL')
 
 
+def is_daisy_file(file_path):
+	"""Check if a file is a DAISY book"""
+	from . import daisyConverter
+	return daisyConverter.is_daisy_file(file_path)
+
+
+def is_braille_file(file_path):
+	"""Check if a file contains braille data"""
+	try:
+		from . import sapieConverter
+		braille_files = sapieConverter.list_braille_files(file_path)
+		return len(braille_files) > 0
+	except:
+		return False
+
+
+def get_book_type(file_path):
+	"""Determine the type of book (braille or daisy)"""
+	if is_daisy_file(file_path):
+		return "daisy"
+	elif is_braille_file(file_path):
+		return "braille"
+	else:
+		return "unknown"
+
+
+def open_daisy(file_path):
+	"""Open a DAISY book in browser"""
+	from . import daisyConverter
+	success, result = daisyConverter.open_daisy_in_browser(file_path)
+	if success:
+		ui.message(_("DAISYを開きました: {}").format(result))
+	else:
+		ui.message(_("DAISYを開けませんでした: {}").format(result))
+	return success
+
+
 def open_book(file_path, viewer_method=None, convert_to_kana=None, parent=None):
 	"""Open a downloaded book for viewing"""
 	try:
@@ -259,7 +296,7 @@ def browse_and_open_book(parent=None):
 			parent,
 			_("点字図書を開く"),
 			defaultDir=default_dir,
-			wildcard=_("点字図書 (*.zip;*.exe)|*.zip;*.exe|すべてのファイル (*.*)|*.*"),
+			wildcard=_("点字・DAISY図書 (*.zip;*.exe)|*.zip;*.exe|すべてのファイル (*.*)|*.*"),
 			style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
 		)
 

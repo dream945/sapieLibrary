@@ -2275,16 +2275,25 @@ class ViewOptionsDialog(wx.Dialog):
 		)
 		self.filePath = filePath
 
+		# Detect book type
+		from . import bookViewer
+		self.bookType = bookViewer.get_book_type(filePath)
+
 		sizer = wx.BoxSizer(wx.VERTICAL)
 
 		# Message
+		import os
+		filename = os.path.basename(filePath)
 		if is_new_download:
-			msg_text = _("ダウンロードが完了しました。\nこの図書を閲覧しますか？")
+			if self.bookType == "daisy":
+				msg_text = _("DAISYのダウンロードが完了しました。\nブラウザで開きますか？\n\n{}").format(filename)
+			else:
+				msg_text = _("ダウンロードが完了しました。\nこの図書を閲覧しますか？")
 		else:
-			# Show filename for existing books
-			import os
-			filename = os.path.basename(filePath)
-			msg_text = _("この図書を閲覧しますか？\n\n{}").format(filename)
+			if self.bookType == "daisy":
+				msg_text = _("このDAISYをブラウザで開きますか？\n\n{}").format(filename)
+			else:
+				msg_text = _("この図書を閲覧しますか？\n\n{}").format(filename)
 		msg = wx.StaticText(self, label=msg_text)
 		sizer.Add(msg, flag=wx.ALL, border=10)
 
@@ -2311,19 +2320,25 @@ class ViewOptionsDialog(wx.Dialog):
 		# Get parent before closing
 		parent = self.GetParent()
 		filePath = self.filePath
+		bookType = self.bookType
 		self.Close()
 		try:
 			from . import bookViewer
-			# Get display format from settings
-			displayFormat = config.conf["sapieLibrary"].get("displayFormat", "kana")
 
-			if displayFormat == "editor":
-				# Open raw BES file in braille editor
-				bookViewer.open_in_braille_editor(filePath, parent=parent)
+			if bookType == "daisy":
+				# Open DAISY in browser
+				bookViewer.open_daisy(filePath)
 			else:
-				# Convert and open in notepad
-				convert_to_kana = (displayFormat == "kana")
-				bookViewer.open_book(filePath, convert_to_kana=convert_to_kana, parent=parent)
+				# Get display format from settings
+				displayFormat = config.conf["sapieLibrary"].get("displayFormat", "kana")
+
+				if displayFormat == "editor":
+					# Open raw braille file in external editor
+					bookViewer.open_in_braille_editor(filePath, parent=parent)
+				else:
+					# Convert and open in notepad
+					convert_to_kana = (displayFormat == "kana")
+					bookViewer.open_book(filePath, convert_to_kana=convert_to_kana, parent=parent)
 		except Exception as e:
 			ui.message(_("図書を開けませんでした"))
 
