@@ -286,7 +286,7 @@ def _extract_text_from_html(html_text):
 
 	# Convert br and p to newlines
 	text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
-	text = re.sub(r'</p>', '\n\n', text, flags=re.IGNORECASE)
+	text = re.sub(r'</p>', '\n', text, flags=re.IGNORECASE)
 	text = re.sub(r'</div>', '\n', text, flags=re.IGNORECASE)
 
 	# Remove all other tags
@@ -300,9 +300,11 @@ def _extract_text_from_html(html_text):
 	text = re.sub(r'&quot;', '"', text)
 	text = re.sub(r'&#(\d+);', lambda m: chr(int(m.group(1))), text)
 
-	# Clean up whitespace
-	text = re.sub(r'\n\s*\n', '\n\n', text)
-	text = text.strip()
+	# Clean up whitespace - strip each line and remove multiple empty lines
+	lines = text.split('\n')
+	lines = [line.strip() for line in lines]  # Remove leading/trailing spaces from each line
+	lines = [line for line in lines if line]  # Remove empty lines
+	text = '\n'.join(lines)
 
 	return text
 
