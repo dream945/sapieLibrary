@@ -144,29 +144,30 @@ def _extract_daisy_202(zf, result):
 
 def _extract_daisy_3(zf, result):
 	"""Extract content from DAISY 3 (ANSI/NISO Z39.86) format"""
-	# Find OPF file
-	opf_content = None
-
+	# Collect all XML files
+	xml_files = []
 	for info in zf.infolist():
-		if info.filename.lower().endswith('.opf'):
-			opf_content = zf.read(info.filename)
-			break
+		name_lower = info.filename.lower()
+		if name_lower.endswith('.xml'):
+			xml_files.append(info)
 
-	# Find DTBook XML content
-	for info in zf.infolist():
-		if info.filename.lower().endswith('.xml'):
-			try:
-				xml_content = zf.read(info.filename)
-				xml_text = _try_decode(xml_content)
+	# Sort XML files by filename (ptk00001.xml, ptk00002.xml, ...)
+	xml_files.sort(key=lambda x: x.filename.lower())
 
-				# Check if it's DTBook
-				if 'dtbook' in xml_text.lower():
-					result = _parse_dtbook(xml_text, result)
-					break
-			except:
-				continue
+	# Process ALL XML files
+	for info in xml_files:
+		try:
+			xml_content = zf.read(info.filename)
+			xml_text = _try_decode(xml_content)
 
-	# If no DTBook found, try generic extraction
+			# Check if it's DTBook format
+			if 'dtbook' in xml_text.lower() or '<level' in xml_text.lower() or '<book' in xml_text.lower():
+				result = _parse_dtbook(xml_text, result)
+		except Exception as e:
+			log.debug(f"Error processing {info.filename}: {e}")
+			continue
+
+	# If no sections found, try generic extraction
 	if not result['sections']:
 		result = _extract_generic_content(zf, result)
 
@@ -174,33 +175,47 @@ def _extract_daisy_3(zf, result):
 
 
 def _parse_dtbook(xml_text, result):
-	"""Parse DTBook XML format"""
-	# Extract title
-	title_match = re.search(r'<doctitle[^>]*>([^<]*)</doctitle>', xml_text, re.IGNORECASE)
-	if title_match:
-		result['title'] = _clean_html(title_match.group(1))
+	"""Parse DTBook XML format - extracts content from a single XML file"""
+	# Extract title from dc:Title meta or doctitle
+	if not result.get('title') or result['title'] == os.path.splitext(os.path.basename(result.get('_filepath', '')))[0]:
+		title_match = re.search(r'<meta[^>]*name=["\']dc:Title["\'][^>]*content=["\']([^"\']+)["\']', xml_text, re.IGNORECASE)
+		if title_match:
+			result['title'] = _clean_html(title_match.group(1))
+		else:
+			title_match = re.search(r'<doctitle[^>]*>([^<]*)</doctitle>', xml_text, re.IGNORECASE)
+			if title_match:
+				result['title'] = _clean_html(title_match.group(1))
 
-	# Extract headings and content
-	# DTBook uses level1, level2, etc. or h1, h2, etc.
+	# Extract headings and content from level elements
+	# DTBook uses level1, level2, level3, etc.
 	level_pattern = re.compile(r'<level(\d)[^>]*>(.*?)</level\1>', re.IGNORECASE | re.DOTALL)
-	heading_pattern = re.compile(r'<h(\d)[^>]*>([^<]*)</h\1>', re.IGNORECASE)
 
 	for level_match in level_pattern.finditer(xml_text):
 		level = int(level_match.group(1))
 		section_content = level_match.group(2)
 
-		# Find heading in this section
+		# Find heading in this section (h1, h2, etc. or text in <sent> tags)
+		heading_pattern = re.compile(r'<h(\d)[^>]*>(.*?)</h\1>', re.IGNORECASE | re.DOTALL)
 		heading_match = heading_pattern.search(section_content)
-		title = heading_match.group(2) if heading_match else f"セクション {level}"
 
-		# Extract text content
+		if heading_match:
+			# Extract text from heading, handling nested tags like <sent>, <span>, etc.
+			heading_html = heading_match.group(2)
+			title = _extract_text_from_html(heading_html).strip()
+			# Get first line only for title
+			title = title.split('\n')[0].strip()
+		else:
+			title = f"セクション"
+
+		# Extract text content from paragraphs
 		content = _extract_text_from_html(section_content)
 
-		result['sections'].append({
-			'level': level,
-			'title': _clean_html(title),
-			'content': content
-		})
+		if title or content.strip():
+			result['sections'].append({
+				'level': level,
+				'title': title if title else "（無題）",
+				'content': content
+			})
 
 	return result
 
